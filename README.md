@@ -8,8 +8,8 @@ Here we are going to use Kubernetes Operator Pythonic Framework (Kopf) to build 
 
 I'm assuming that there is a working kubernetes cluster and WSO2 API Manager is already deployed and available in the cluster.
 
-##Step 1. Create an Operator
-* ###Create a Custom Resource Definition (CRD)
+## Step 1. Create an Operator
+* ### Create a Custom Resource Definition (CRD)
 Find the custom_resource_definition.yml file inside the /oda.
 
 ```yaml
@@ -37,7 +37,7 @@ kubectl apply -f custom_resource_definition.yml
 
 This will create a new object component in the cluster, but it will need a controller to manage this object, which will be next step.
 
-* ###Create an Operator handler to manage the CRD object
+* ### Create an Operator handler to manage the CRD object
 Find the operator_handler.py script inside the /operator and change the APIM application details accordingly there.
 
 ```properties
@@ -70,7 +70,7 @@ This will
 - Create a service account and assign it to the operator pod with permission to create resources in the cluster.
 - Create a deployment for the operator.
 
-##Step 2. Dockerizing a sample Spring Boot Application
+## Step 2. Dockerizing a sample Spring Boot Application
 Find the deploy script inside the /java-sample-ms and execute it.
 ```bash
 docker build -t nipunthilakshan/view-api .
@@ -82,7 +82,7 @@ docker push nipunthilakshan/view-api
 
 This will create and publish a docker image of sample Spring Boot application to the docker registry.The sample api/application is available at the directory of /viewer.
 
-##Step 3. Deploy the sample application using HELM charts
+## Step 3. Deploy the sample application using HELM charts
 Find the test-instance.component.yaml file inside the /oda and install the component using Helm.
 ```yaml
 ---
