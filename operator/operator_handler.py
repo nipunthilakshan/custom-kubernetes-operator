@@ -15,12 +15,12 @@ out_hdlr.setLevel(logging.DEBUG)
 log.addHandler(out_hdlr)
 log.setLevel(logging.DEBUG)
 
-consumer_key = "RfI05Aa7KOxnOYVWK0fe6hgNXmca"
-consumer_secret = "LOkDasjJtByow8SHobFLdCOKU9sa"
+consumer_key = "grk1fFROfIWQ2OEM6eZVI_VemlMa"
+consumer_secret = "dywFFHFrbCBhdAmtKKFfdDafqUwa"
 apim_token_url = "https://localhost:8243/token?grant_type=client_credentials&scope=apim:api_view " \
                  "apim:api_create apim:api_publish"
-apim_api_create_url = "https://localhost:9443/api/am/publisher/v1/apis/import-openapi"
-apim_api_publish_url = "https://localhost:9443/api/am/publisher/v1/apis/change-lifecycle?action=Publish&apiId="
+apim_api_create_url = "https://localhost:9443/api/am/publisher/v0.13/apis"
+apim_api_publish_url = "https://localhost:9443/api/am/publisher/v0.13/apis/change-lifecycle?apiId="
 name_space = "selfcare"
 delay_time = 7
 
@@ -33,6 +33,7 @@ def create_service(meta, spec, **kwargs):
     time.sleep(delay_time)
     try:
         apis = spec['coreFunction']['exposedAPIs']
+        version = spec['version']
         for api in apis:
             api_name = api['name']
             api_path = api['path']
@@ -40,7 +41,7 @@ def create_service(meta, spec, **kwargs):
             port = api['port']
             log.debug(
                 f'api_name: {api_name},api_path: {api_path},api_implementation: {api_implementation},port: {port}')
-            create_api(api_name, api_path, str(port), api_implementation)
+            create_api(api_name, api_path, str(port), api_implementation, version)
 
     except Exception as err:
         log.error(f'Other error occurred: {err}')
@@ -51,10 +52,10 @@ def create_service(meta, spec, **kwargs):
 # WSO2 APIM token generation.
 def token_generation():
     log.debug("Token generation started")
+    token = "dump"
     try:
-        token = "dump"
         header_key = encoder()
-        headers = {'Authorization': header_key}
+        headers = {'Authorization': header_key, 'Content-Type': 'application/x-www-form-urlencoded'}
         response = requests.post(apim_token_url, headers=headers, verify=False)
         if response.status_code == 200:
             log.debug("Token creation success")
@@ -80,31 +81,39 @@ def encoder():
 
 
 # Create an api in WSO2 APIM
-def create_api(service_name, path, port, imlementation):
+def create_api(service_name, path, port, implementation, version):
     log.debug("Api generation started")
     try:
         token = token_generation()
         token_bearer = "Bearer " + token
-        # swagger_url = 'http://' + service_name + "." + name_space + '.svc.cluster.local' + '/v2/api-docs'
         swagger_url = 'http://' + service_name + path
-        headers = {'Authorization': token_bearer, 'Content-Type': 'multipart/form-data'}
+        api_definition = get_swagger_definition(swagger_url)
+        headers = {'Authorization': token_bearer, 'Content-Type': 'application/json'}
         log.debug(f"swagger: {swagger_url}")
-        additional_data = {
+        end_point_config = {
+            'endpoint_type': 'http',
+            'sandbox_endpoints': {'url': service_name + ':' + port},
+            'production_endpoints': {'url': service_name + ':' + port},
+        }
+        request_body = {
             'name': service_name,
-            'version': '1.0',
+            'description': implementation,
+            'version': version,
+            'provider': 'publisher1',
             'context': service_name,
-            'policies': ['Bronze'],
-            'endpointConfig': {
-                'endpoint_type': 'http',
-                'sandbox_endpoints': {'url': service_name + ':' + port},
-                'production_endpoints': {'url': service_name + ':' + port},
-            },
-            'gatewayEnvironments': ['Production and Sandbox']
+            'apiDefinition': api_definition,
+            'tiers': ['Bronze'],
+            "transport": [
+                'http',
+                'https'
+            ],
+            'visibility': 'PUBLIC',
+            'endpointConfig': json.dumps(end_point_config),
+            'gatewayEnvironments': 'Production and Sandbox',
+            "isDefaultVersion": False
         }
 
-        form_data = {'url': swagger_url,
-                     'additionalProperties': json.dumps(additional_data)}
-        response = requests.post(apim_api_create_url, headers=headers, files=form_data, verify=False)
+        response = requests.post(apim_api_create_url, headers=headers, json=request_body, verify=False)
         log.debug(f"response: {response.content}")
         if response.status_code == 201:
             log.debug("Api creation success")
@@ -122,13 +131,27 @@ def create_api(service_name, path, port, imlementation):
 
 # Publish an api in WSO2 APIM
 def publish_api(id, auth_token):
+    log.debug("Api publish started")
     try:
-        log.debug("Api publish started")
         headers = {'Authorization': "Bearer " + auth_token}
-        url = apim_api_publish_url + id
+        url = apim_api_publish_url + id + "&action=Publish"
         response = requests.post(url, headers=headers, verify=False)
         if response.status_code == 200:
             log.debug("Api publish success")
+    except HTTPError as http_err:
+        log.error(f'HTTP error occurred: {http_err}')
+    except Exception as err:
+        log.error(f'Other error occurred: {err}')
+
+
+# Get api definition
+def get_swagger_definition(url):
+    log.debug("Getting swagger details ")
+    try:
+        response = requests.get(url, verify=False)
+        if response.status_code == 200:
+            log.debug("Swagger details gathered success")
+        return json.dumps(response.json())
     except HTTPError as http_err:
         log.error(f'HTTP error occurred: {http_err}')
     except Exception as err:
