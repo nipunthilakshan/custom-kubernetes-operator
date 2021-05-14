@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Release.Name}}-dataview
+  labels:
+    oda.tmforum.org/componentName: {{.Release.Name}}-{{.Values.component.type}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Release.Name}}-dataview
+  template:
+    metadata:
+      labels:
+        app: {{.Release.Name}}-dataview
+    spec:
+      containers:
+      - name: {{.Release.Name}}-dataview
+        image: nipunthilakshan/view-api
+        command: ["/bin/sh"]
+        args: ["-l", "-c", "cd /root/ && java -jar /root/view-api.jar"]
+        imagePullPolicy: Always
+        ports:
+        - name: {{.Release.Name}}-dataview
+          containerPort: 8111
+        volumeMounts:
+        - mountPath: /logs/
+          name: log-volume
+        - mountPath: /etc/configs/
+          name: configs
+      volumes:
+      - name: log-volume
+        hostPath:
+         # directory location on host
+         path: /var/log/logs/
+      - name: configs
+        hostPath:
+         # directory location on host
+         path: /etc/configs/

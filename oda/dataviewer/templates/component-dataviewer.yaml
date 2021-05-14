@@ -1,0 +1,43 @@
+apiVersion: oda.tmforum.org/v1alpha1
+kind: component
+metadata:
+  name: {{.Release.Name}}-{{.Values.component.type}}
+  labels:
+    oda.tmforum.org/componentName: {{.Release.Name}}-{{.Values.component.type}}
+spec:
+  type: {{.Values.component.type}}
+  selector:
+    matchLabels:
+     oda.tmforum.org/componentName: {{.Release.Name}}-{{.Values.component.type}}
+  componentKinds:
+    - group: core
+      kind: Service    
+    - group: apps
+      kind: Deployment  
+  version: "0.0.1"
+  description: "Simple Data Viewer ODA-Component from Open-API reference implementation." 
+  maintainers:
+    - name: Nipun Thilakshan
+      email: ngnthilakshan@gmail.com
+  owners:
+    - name: Nipun Thilakshan
+      email: ngnthilakshan@gmail.com
+  coreFunction:
+    exposedAPIs: 
+    - name: {{.Release.Name}}-dataview
+      specification: Sample implementation
+      implementation: {{.Release.Name}}-dataview
+      path: /v2/api-docs
+      developerUI: /swagger-ui.html#/
+      port: 8111
+    dependantAPIs: []
+  eventNotification:
+    publishedEvents: []
+    subscribedEvents: []
+  management: []
+  security:
+    securitySchemes: 
+      bearerAuth:
+        type: http
+        scheme: bearer
+        bearerFormat: JWT

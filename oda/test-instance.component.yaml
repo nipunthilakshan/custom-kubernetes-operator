@@ -1,0 +1,103 @@
+---
+# Source: dataviewer/templates/service-dataviewerapi.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-dataview
+  labels:
+    app: test-dataview
+    oda.tmforum.org/componentName: test-dataviewer
+spec:
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8111
+  type: ClusterIP
+  selector:
+    app: test-dataview
+---
+# Source: dataviewer/templates/deployment-dataviewerapi.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-dataview
+  labels:
+    oda.tmforum.org/componentName: test-dataviewer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-dataview
+  template:
+    metadata:
+      labels:
+        app: test-dataview
+    spec:
+      containers:
+      - name: test-dataview
+        image: nipunthilakshan/view-api
+        command: ["/bin/sh"]
+        args: ["-l", "-c", "cd /root/ && java -jar /root/view-api.jar"]
+        imagePullPolicy: Always
+        ports:
+        - name: test-dataview
+          containerPort: 8111
+        volumeMounts:
+        - mountPath: /logs/
+          name: log-volume
+        - mountPath: /etc/configs/
+          name: configs
+      volumes:
+      - name: log-volume
+        hostPath:
+         # directory location on host
+         path: /var/log/logs/
+      - name: configs
+        hostPath:
+         # directory location on host
+         path: /etc/configs/
+---
+# Source: dataviewer/templates/component-dataviewer.yaml
+apiVersion: oda.tmforum.org/v1alpha1
+kind: component
+metadata:
+  name: test-dataviewer
+  labels:
+    oda.tmforum.org/componentName: test-dataviewer
+spec:
+  type: dataviewer
+  selector:
+    matchLabels:
+     oda.tmforum.org/componentName: test-dataviewer
+  componentKinds:
+    - group: core
+      kind: Service    
+    - group: apps
+      kind: Deployment  
+  version: "0.0.1"
+  description: "Simple Data Viewer ODA-Component from Open-API reference implementation." 
+  maintainers:
+    - name: Nipun Thilakshan
+      email: ngnthilakshan@gmail.com
+  owners:
+    - name: Nipun Thilakshan
+      email: ngnthilakshan@gmail.com
+  coreFunction:
+    exposedAPIs: 
+    - name: test-dataview
+      specification: Sample implementation
+      implementation: test-dataview
+      path: /v2/api-docs
+      developerUI: /swagger-ui.html#/
+      port: 8111
+    dependantAPIs: []
+  eventNotification:
+    publishedEvents: []
+    subscribedEvents: []
+  management: []
+  security:
+    securitySchemes: 
+      bearerAuth:
+        type: http
+        scheme: bearer
+        bearerFormat: JWT
