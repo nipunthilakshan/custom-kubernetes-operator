@@ -22,15 +22,14 @@ apim_token_url = "https://localhost:8243/token?grant_type=client_credentials&sco
 apim_api_create_url = "https://localhost:9443/api/am/publisher/v0.13/apis"
 apim_api_publish_url = "https://localhost:9443/api/am/publisher/v0.13/apis/change-lifecycle?apiId="
 name_space = "selfcare"
-delay_time = 7
+delay_time = 17
 
+scopes_to_role_mapping = {'admin': ['role1', 'admin'], 'regular': ['role2']}
 
 # This method will be triggered when a ODA component is created in kubernetes cluster.
 @kopf.on.create('oda.tmforum.org', 'v1alpha1', 'components')
 def create_service(meta, spec, **kwargs):
     log.debug("ODA creation triggered")
-    # Add delay since the service need to be deployed
-    time.sleep(delay_time)
     try:
         apis = spec['coreFunction']['exposedAPIs']
         version = spec['version']
@@ -38,10 +37,11 @@ def create_service(meta, spec, **kwargs):
             api_name = api['name']
             api_path = api['path']
             api_implementation = api['implementation']
+            api_scopes = api['scopes']
             port = api['port']
             log.debug(
                 f'api_name: {api_name},api_path: {api_path},api_implementation: {api_implementation},port: {port}')
-            create_api(api_name, api_path, str(port), api_implementation, version)
+            create_api(api_name, api_path, str(port), api_implementation, version, api_scopes)
 
     except Exception as err:
         log.error(f'Other error occurred: {err}')
@@ -81,13 +81,14 @@ def encoder():
 
 
 # Create an api in WSO2 APIM
-def create_api(service_name, path, port, implementation, version):
+def create_api(service_name, path, port, implementation, version, api_scopes):
     log.debug("Api generation started")
     try:
         token = token_generation()
         token_bearer = "Bearer " + token
         swagger_url = 'http://' + service_name + path
-        api_definition = get_swagger_definition(swagger_url)
+        time.sleep(delay_time)  # wait until the microservice is crated and exposed as a service
+        api_definition = get_swagger_definition(swagger_url, api_scopes)
         headers = {'Authorization': token_bearer, 'Content-Type': 'application/json'}
         log.debug(f"swagger: {swagger_url}")
         end_point_config = {
@@ -147,11 +148,31 @@ def publish_api(id, auth_token):
 # Get api definition
 def get_swagger_definition(url):
     log.debug("Getting swagger details ")
+
+    # Add scopes to the swagger details
     try:
+        resp_body = {}
+        scope_arry = []
+        for scope in api_scopes:
+            scope_name = scope['name']
+            scope_obj = {
+                'name': scope_name,
+                'description': scope_name + ' privileges are available',
+                'key': scope_name,
+                'roles': scopes_to_role_mapping.get(scope_name)
+            }
+            scope_arry.append(scope_obj)
+        scope_data = {
+            'apim': {
+                'x-wso2-scopes': scope_arry
+            }
+        }
         response = requests.get(url, verify=False)
         if response.status_code == 200:
+            resp_body = response.json()
+            resp_body['x-wso2-security'] = scope_data
             log.debug("Swagger details gathered success")
-        return json.dumps(response.json())
+        return json.dumps(resp_body)
     except HTTPError as http_err:
         log.error(f'HTTP error occurred: {http_err}')
     except Exception as err:
